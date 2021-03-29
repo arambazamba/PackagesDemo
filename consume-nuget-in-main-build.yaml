@@ -1,0 +1,54 @@
+trigger:
+  - "*"
+
+pool:
+  vmImage: "ubuntu-20.04"
+
+variables:
+  feed: "FoodApp"
+  folder: "FoodApi"
+  dotnetSdkVersion: "5.0.x"
+  buildConfiguration: "Release"
+
+steps:
+  - task: UseDotNet@2
+    displayName: "Use .NET Core SDK $(dotnetSdkVersion)"
+    inputs:
+      version: "$(dotnetSdkVersion)"
+
+  - task: NuGetToolInstaller@0
+    inputs:
+      versionSpec: "5.8.1"
+      checkLatest: true
+
+  - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
+    displayName: "Write build info"
+    workingDirectory: $(folder)
+
+  - task: NuGetCommand@2
+    displayName: "Restore project dependencies"
+    inputs:
+      command: "restore"
+      restoreSolution: "$(folder)/*.csproj"
+      feedsToUse: "select"
+      vstsFeed: "f2bbbb52-37bf-478e-9e11-f51f4e769e9c/ff76dacb-1259-4cb4-a4c7-3c0d37e3ec75"
+
+  - task: DotNetCoreCLI@2
+    displayName: "Build the project - $(buildConfiguration)"
+    inputs:
+      command: "build"
+      arguments: "--no-restore --configuration $(buildConfiguration)"
+      projects: "$(folder)/*.csproj"
+
+  - task: DotNetCoreCLI@2
+    displayName: "Publish the project - $(buildConfiguration)"
+    inputs:
+      command: "publish"
+      projects: "$(folder)/*.csproj"
+      publishWebProjects: false
+      arguments: "--no-build --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)"
+      zipAfterPublish: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Publish Artifact: drop"
+    condition: succeeded()
